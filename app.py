@@ -37,9 +37,24 @@ DB_PATH = WEB_DIR / "tokens.db"
 TOKEN_VALID_MIN = 15
 SESSION_VALID_HOURS = 24
 ALLOWED_DOMAINS = [d.strip() for d in os.environ.get("ALLOWED_DOMAINS", "avonova.no,avonova.fi").split(",") if d.strip()]
-APP_BASE_URL = os.environ.get("APP_BASE_URL", "http://localhost:8501")
+APP_BASE_URL_ENV = os.environ.get("APP_BASE_URL", "").strip()
 SENDGRID_API_KEY = os.environ.get("SENDGRID_API_KEY", "")
 SENDGRID_FROM = os.environ.get("SENDGRID_FROM", "noreply@avonova.fi")
+
+
+def get_base_url() -> str:
+    """Resolve public base URL. Prefer APP_BASE_URL env, else derive from request headers."""
+    if APP_BASE_URL_ENV:
+        return APP_BASE_URL_ENV.rstrip("/")
+    try:
+        headers = st.context.headers
+        host = headers.get("Host") or headers.get("X-Forwarded-Host")
+        proto = headers.get("X-Forwarded-Proto") or ("http" if host and "localhost" in host else "https")
+        if host:
+            return f"{proto}://{host}"
+    except Exception:
+        pass
+    return "http://localhost:8501"
 
 EMAIL_PATTERN = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
 
@@ -137,14 +152,15 @@ def render_login():
             return
 
         token = create_token(email)
-        login_url = f"{APP_BASE_URL}?token={token}"
+        login_url = f"{get_base_url()}/?token={token}"
+        relative_url = f"?token={token}"
         ok, msg = send_magic_link(email, login_url)
         if ok:
             st.success(msg)
         else:
             st.warning(msg)
             st.info("Dev mode — click the link below to sign in:")
-            st.markdown(f"[Sign in now →]({login_url})")
+            st.markdown(f"[Sign in now →]({relative_url})")
             st.code(login_url, language=None)
 
 
