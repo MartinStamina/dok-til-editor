@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: dok-til-editor-backend
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 180
+    envVars:
+      - key: JWT_SECRET
+        sync: false
+      - key: PYTHON_VERSION
+        value: 3.12.0
